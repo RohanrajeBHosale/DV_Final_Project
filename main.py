@@ -123,3 +123,83 @@ def update_choropleth(selected_metric, map_view, selected_year):
 
 if __name__ == "__main__":
     app.run_server(debug=True)
+
+
+# Your entire Dash app code above this point...
+import pandas as pd
+import plotly.express as px
+from dash import Dash, html, dcc, Input, Output
+import dash_bootstrap_components as dbc
+
+# (All your code for datasets, color scales, app layout, and callbacks)
+
+# Function to update the choropleth map
+@app.callback(
+    Output("choropleth-map", "figure"),
+    [Input("metric-dropdown", "value"),
+     Input("map-view-dropdown", "value")]
+)
+def update_choropleth(selected_metric, map_view):
+    # Get the dataset
+    dataset = datasets[selected_metric]
+    dataset = dataset.rename(columns={"entity": "country"})
+
+    # Select the first numerical column for visualization
+    metric = [col for col in dataset.columns if col not in ["country", "year", "code"]][0]
+
+    # Generate the animated choropleth map
+    fig = px.choropleth(
+        dataset,
+        locations="country",
+        locationmode="country names",
+        color=metric,
+        hover_name="country",
+        animation_frame="year",  # Enable animation by year
+        title=f"{selected_metric} Over Time ({metric.replace('_', ' ').title()})",
+        color_continuous_scale=color_scales[selected_metric],
+    )
+
+    # Adjust map region
+    fig.update_geos(scope=map_view, showcoastlines=True, projection_type="natural earth")
+
+    # Layout adjustments
+    fig.update_layout(
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        template="plotly_white",
+        coloraxis_colorbar=dict(title=metric.replace("_", " ").title()),
+        updatemenus=[  # Add play/pause buttons
+            {
+                "buttons": [
+                    {
+                        "args": [None, {"frame": {"duration": 250, "redraw": True}, "fromcurrent": True}],
+                        "label": "Play",
+                        "method": "animate",
+                    },
+                    {
+                        "args": [[None], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+                        "label": "Pause",
+                        "method": "animate",
+                    },
+                ],
+                "direction": "left",
+                "pad": {"r": 10, "t": 87},
+                "showactive": True,
+                "type": "buttons",
+                "x": 0.1,
+                "xanchor": "right",
+                "y": 0,
+                "yanchor": "top",
+            }
+        ],
+    )
+    return fig
+
+# Save the dashboard as an HTML file for GitHub Pages
+if __name__ == "__main__":
+    # Save the static HTML file
+    fig = update_choropleth("Energy Use Per Person", "world")
+    fig.write_html("choropleth_dashboard.html")
+    print("HTML dashboard saved as 'choropleth_dashboard.html'")
+
+    # Start the Dash server (for dynamic use)
+    app.run_server(debug=True)
