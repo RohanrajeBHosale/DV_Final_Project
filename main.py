@@ -14,7 +14,6 @@ dataset_files = {
     "Primary Energy Consumption": "cleaned_datasets/primary_energy_consumption_cleaned.json",
 }
 
-# Load JSON files into datasets dictionary
 datasets = {name: pd.read_json(file) for name, file in dataset_files.items()}
 
 # Define color scales for datasets
@@ -46,17 +45,14 @@ app.layout = dbc.Container(fluid=True, children=[
                 placeholder="Select a metric",
             ),
             html.Br(),
-            html.Label("Map View", className="text-light"),
-            dcc.Dropdown(
-                id="map-view-dropdown",
-                options=[
-                    {"label": "World", "value": "world"},
-                    {"label": "Europe", "value": "europe"},
-                    {"label": "Asia", "value": "asia"},
-                    {"label": "Africa", "value": "africa"},
-                ],
-                value="world",
-                placeholder="Select a map view",
+            html.Label("Year", className="text-light"),
+            dcc.Slider(
+                id="year-slider",
+                min=1970,
+                max=2020,
+                step=1,
+                value=2020,
+                marks={year: str(year) for year in range(1970, 2021, 5)},
             ),
             html.Br(),
             html.Label("Data Source", className="text-light"),
@@ -68,138 +64,67 @@ app.layout = dbc.Container(fluid=True, children=[
         ], width=3, className="bg-dark p-4"),
         # Map and Controls
         dbc.Col([
-            html.H4("Energy Distribution by Country", className="text-center"),
-            dcc.Graph(id="choropleth-map"),
-            dcc.Slider(
-                id="year-slider",
-                min=1970,
-                max=2020,
-                step=1,
-                marks={year: str(year) for year in range(1970, 2021, 5)},
-                value=2020,
-            ),
+            html.H4("3D Energy Distribution by Country", className="text-center"),
+            dcc.Graph(id="3d-globe"),
         ], width=9),
     ]),
 ])
 
-# Callback to update the choropleth map
+# Callback to update the 3D globe visualization
 @app.callback(
-    Output("choropleth-map", "figure"),
+    Output("3d-globe", "figure"),
     [Input("metric-dropdown", "value"),
-     Input("map-view-dropdown", "value"),
      Input("year-slider", "value")]
 )
-def update_choropleth(selected_metric, map_view, selected_year):
-    # Get the dataset and filter by year
-    dataset = datasets[selected_metric]
-    data_for_year = dataset[dataset["year"] == selected_year]
-    data_for_year = data_for_year.rename(columns={"entity": "country"})
-
-    # Select the first numerical column for visualization
-    metric = [col for col in data_for_year.columns if col not in ["country", "year", "code"]][0]
-
-    # Generate the choropleth map
-    fig = px.choropleth(
-        data_for_year,
-        locations="country",
-        locationmode="country names",
-        color=metric,
-        hover_name="country",
-        title=f"{selected_metric} ({metric.replace('_', ' ').title()}) in {selected_year}",
-        color_continuous_scale=color_scales[selected_metric],
-    )
-
-    # Adjust map region
-    fig.update_geos(scope=map_view, showcoastlines=True, projection_type="natural earth")
-
-    # Layout adjustments
-    fig.update_layout(
-        margin={"r": 0, "t": 40, "l": 0, "b": 0},
-        template="plotly_white",
-        coloraxis_colorbar=dict(title=metric.replace("_", " ").title()),
-    )
-    return fig
-
-
-if __name__ == "__main__":
-    app.run_server(debug=True)
-
-
-# Your entire Dash app code above this point...
-import pandas as pd
-import plotly.express as px
-from dash import Dash, html, dcc, Input, Output
-import dash_bootstrap_components as dbc
-
-# (All your code for datasets, color scales, app layout, and callbacks)
-
-# Function to update the choropleth map
-@app.callback(
-    Output("choropleth-map", "figure"),
-    [Input("metric-dropdown", "value"),
-     Input("map-view-dropdown", "value")]
-)
-def update_choropleth(selected_metric, map_view):
+def update_globe(selected_metric, selected_year):
     # Get the dataset
     dataset = datasets[selected_metric]
-    dataset = dataset.rename(columns={"entity": "country"})
+    dataset = dataset.rename(columns={"entity": "country", "code": "ISO_A3"})
 
-    # Select the first numerical column for visualization
-    metric = [col for col in dataset.columns if col not in ["country", "year", "code"]][0]
+    # Filter dataset for the selected year
+    year_data = dataset[dataset["year"] == selected_year]
 
-    # Generate the animated choropleth map
+    # Select the metric to visualize
+    metric = [col for col in year_data.columns if col not in ["country", "year", "ISO_A3"]][0]
+
+    # Generate the 3D globe visualization
     fig = px.choropleth(
-        dataset,
-        locations="country",
-        locationmode="country names",
+        year_data,
+        locations="ISO_A3",
         color=metric,
         hover_name="country",
-        animation_frame="year",  # Enable animation by year
-        title=f"{selected_metric} Over Time ({metric.replace('_', ' ').title()})",
+        title=f"{selected_metric} in {selected_year}",
         color_continuous_scale=color_scales[selected_metric],
+        projection="orthographic",  # Create the 3D globe effect
     )
 
-    # Adjust map region
-    fig.update_geos(scope=map_view, showcoastlines=True, projection_type="natural earth")
+    # Customize the globe appearance
+    fig.update_geos(
+        showcountries=True,
+        countrycolor="white",
+        showcoastlines=True,
+        coastlinecolor="white",
+        showocean=True,
+        oceancolor="lightblue",
+        showland=True,
+        landcolor="gray",
+    )
 
     # Layout adjustments
     fig.update_layout(
         margin={"r": 0, "t": 40, "l": 0, "b": 0},
         template="plotly_white",
         coloraxis_colorbar=dict(title=metric.replace("_", " ").title()),
-        updatemenus=[  # Add play/pause buttons
-            {
-                "buttons": [
-                    {
-                        "args": [None, {"frame": {"duration": 250, "redraw": True}, "fromcurrent": True}],
-                        "label": "Play",
-                        "method": "animate",
-                    },
-                    {
-                        "args": [[None], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
-                        "label": "Pause",
-                        "method": "animate",
-                    },
-                ],
-                "direction": "left",
-                "pad": {"r": 10, "t": 87},
-                "showactive": True,
-                "type": "buttons",
-                "x": 0.1,
-                "xanchor": "right",
-                "y": 0,
-                "yanchor": "top",
-            }
-        ],
     )
+
     return fig
 
-# Save the dashboard as an HTML file for GitHub Pages
-if __name__ == "__main__":
-    # Save the static HTML file
-    fig = update_choropleth("Energy Use Per Person", "world")
-    fig.write_html("choropleth_dashboard.html")
-    print("HTML dashboard saved as 'choropleth_dashboard.html'")
 
-    # Start the Dash server (for dynamic use)
+if __name__ == "__main__":
     app.run_server(debug=True)
+
+if __name__ == "__main__":
+    # Generate a static HTML file for GitHub Pages
+    fig = update_globe("Energy Use Per Person", 2020)  # Default metric and year
+    fig.write_html("index.html")  # Save as index.html for GitHub Pages
+    print("Static HTML file saved as 'index.html'")
