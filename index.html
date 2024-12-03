@@ -1,28 +1,50 @@
-                                        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>World Energy Dashboard</title>
+    <title>3D Globe Visualization</title>
+    <script src="//unpkg.com/d3"></script>
+    <script src="//unpkg.com/globe.gl"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
-        }
-        a {
-            text-decoration: none;
-            color: #007bff;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
+        body { margin: 0; overflow: hidden; }
+        #globeViz { width: 100%; height: 100vh; }
     </style>
 </head>
 <body>
-    <h1>World Energy Dashboard</h1>
-    <p>Click the link below to view the dashboard:</p>
-    <a href="choropleth_dashboard.html" target="_blank">View the Dashboard</a>
-    <p>Or download <a href="main.py">main.py</a> to run it locally.</p>
+    <div id="globeViz"></div>
+    <script>
+        const fetchGeoJSON = async () => {
+            const response = await fetch('assets/generated_data.geojson');
+            return await response.json();
+        };
+
+        fetchGeoJSON().then(countries => {
+            const colorScale = d3.scaleSequentialPow(d3.interpolateYlGnBu).exponent(0.3);
+            colorScale.domain([0, 5000]);
+
+            const world = Globe()
+                .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+                .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
+                .polygonsData(countries.features)
+                .polygonAltitude(0.06)
+                .polygonCapColor(feat => feat.properties.Total === -1 ? 'lightgrey' : colorScale(feat.properties.Total))
+                .polygonSideColor(() => 'rgba(0, 50, 50, 0.5)')
+                .polygonStrokeColor(() => 'white')
+                .polygonLabel(({ properties: d }) => `
+                    <div>
+                        <strong>${d.NAME}</strong><br>
+                        Total Value: ${d.Total === -1 ? 'No Data' : d3.format('.2s')(d.Total)}
+                    </div>
+                `)
+                .onPolygonHover(hoverD => world
+                    .polygonAltitude(d => d === hoverD ? 0.1 : 0.06)
+                    .polygonCapColor(d => d === hoverD ? 'orange' : colorScale(d.properties.Total))
+                )
+                .polygonsTransitionDuration(300);
+
+            world(document.getElementById('globeViz'));
+        });
+    </script>
 </body>
 </html>
