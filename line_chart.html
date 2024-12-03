@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Trends</title>
+    <script src="//d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .chart { width: 800px; height: 500px; margin: auto; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Energy Trends Over Time</h1>
+    <div id="lineChart" class="chart"></div>
+    <script>
+        const fetchData = async () => {
+            const response = await fetch('assets/energy_trends.json');
+            return await response.json();
+        };
+
+        fetchData().then(data => {
+            const svg = d3.select("#lineChart").append("svg")
+                .attr("width", 800)
+                .attr("height", 500)
+                .append("g")
+                .attr("transform", "translate(50, 50)");
+
+            const x = d3.scaleTime().range([0, 700]);
+            const y = d3.scaleLinear().range([400, 0]);
+
+            const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+            const line = d3.line()
+                .x(d => x(new Date(d.year)))
+                .y(d => y(d.value));
+
+            x.domain(d3.extent(data, d => new Date(d.year)));
+            y.domain([0, d3.max(data, d => d.value)]);
+
+            svg.append("g")
+                .attr("transform", "translate(0, 400)")
+                .call(d3.axisBottom(x));
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            const countries = [...new Set(data.map(d => d.country))];
+            color.domain(countries);
+
+            countries.forEach(country => {
+                const countryData = data.filter(d => d.country === country);
+
+                svg.append("path")
+                    .datum(countryData)
+                    .attr("fill", "none")
+                    .attr("stroke", color(country))
+                    .attr("stroke-width", 2)
+                    .attr("d", line);
+            });
+        });
+    </script>
+</body>
+</html>
