@@ -1,0 +1,19 @@
+body {
+    font-family: Lato, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif;
+    color: #333;
+    line-height: 1.6;
+}
+
+#chart {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.axis path,
+.axis line {
+    stroke: #ccc;
+}
+
+.axis text {
+    font-size: 12px;
+}
