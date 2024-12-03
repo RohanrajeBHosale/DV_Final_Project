@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Heatmap</title>
+    <script src="//d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .chart { display: flex; justify-content: center; }
+        .tooltip { position: absolute; background: #f4f4f4; padding: 5px; border: 1px solid #ddd; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Energy Usage Heatmap</h1>
+    <div id="heatmap" class="chart"></div>
+    <div class="tooltip" style="display: none;"></div>
+    <script>
+        const fetchData = async () => {
+            const response = await fetch('assets/energy_heatmap.json');
+            return await response.json();
+        };
+
+        fetchData().then(data => {
+            const margin = { top: 50, right: 20, bottom: 50, left: 50 };
+            const width = 800 - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+
+            const svg = d3.select("#heatmap").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+            const x = d3.scaleBand().range([0, width]).padding(0.05);
+            const y = d3.scaleBand().range([height, 0]).padding(0.05);
+
+            const color = d3.scaleSequential(d3.interpolateYlGnBu);
+
+            const tooltip = d3.select(".tooltip");
+
+            x.domain(data.map(d => d.year));
+            y.domain(data.map(d => d.country));
+            color.domain([0, d3.max(data, d => d.value)]);
+
+            svg.append("g").call(d3.axisBottom(x).tickSize(0)).attr("transform", `translate(0, ${height})`);
+            svg.append("g").call(d3.axisLeft(y).tickSize(0));
+
+            svg.selectAll()
+                .data(data, d => d.year + ':' + d.country)
+                .join("rect")
+                .attr("x", d => x(d.year))
+                .attr("y", d => y(d.country))
+                .attr("width", x.bandwidth())
+                .attr("height", y.bandwidth())
+                .attr("fill", d => color(d.value))
+                .on("mouseover", (event, d) => {
+                    tooltip.style("display", "block").text(`${d.country}, ${d.year}: ${d.value}`);
+                })
+                .on("mousemove", event => {
+                    tooltip.style("top", `${event.pageY - 10}px`).style("left", `${event.pageX + 10}px`);
+                })
+                .on("mouseout", () => tooltip.style("display", "none"));
+        });
+    </script>
+</body>
+</html>
